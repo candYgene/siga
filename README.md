@@ -1,4 +1,4 @@
-[candYgene](http://software.esciencecenter.nl/project/candygene/)
+SIGA.py
 =
 *SIGA.py* is a command-line tool to generate *Semantically Interoperable Genome Annotations* from
 [GFF](https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md) files according to the Resource Description Framework ([RDF](https://www.w3.org/TR/rdf11-concepts/)) specification.
