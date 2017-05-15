@@ -49,7 +49,7 @@ from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import Namespace, RDF, RDFS, XSD, DCTERMS
 from urllib2 import urlparse, unquote
 from datetime import datetime
-from ConfigParser import SafeConfigParser
+from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
 
 import os
 import sys
@@ -59,7 +59,7 @@ import sqlite3 as sql
 
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.4.3'
+__version__ = '0.4.4'
 __status__ = 'alpha'
 __license__ = 'Apache License, Version 2.0'
 
@@ -78,7 +78,6 @@ def is_uri(uri):
 def validate(self):
     """Validate an instance of `SafeConfigParser` class. Check the presence of mandatory sections/options.
     """
-    import ConfigParser
     try:
         sections = ('GFF', 'RDF', 'FeatureRewrite', 'FeatureToClass',
                     'DNAstrandToClass', 'Ontologies')
@@ -91,7 +90,7 @@ def validate(self):
                 except ValueError, err:
                     print(str(err), file=sys.stderr)
                     sys.exit(1)
-    except ConfigParser.NoSectionError, err:
+    except NoSectionError, err:
         print(str(err), file=sys.stderr)
         sys.exit(1)
     try:
@@ -109,7 +108,7 @@ def validate(self):
         self.get('RDF', 'license')
         self.get('FeatureToClass', 'genome')
         self.get('FeatureToClass', 'chromosome')
-    except ConfigParser.NoOptionError, err:
+    except NoOptionError, err:
         print(str(err), file=sys.stderr)
         sys.exit(1)
 
@@ -133,30 +132,29 @@ def remove_file(fn):
 def normalize_feature_id(id):
     """Ad-hoc function to normalize feature IDs.
     """
-    # Note: There is no optimal solution to resolve all features in SGN (https://solgenomics.net/):
-    # e.g., a feature ID in a GFF file 'gene:Solyc00g005000.2' corresponds to three URLs:
-    #   https://solgenomics.net/locus/Solyc00g005000.2/view !!! note the use of 'locus' instead of 'gene' !!!
+    # Note: Sub-optimal URL resolution of genetic features in SGN (https://solgenomics.net/);
+    # for example, feature ID 'gene:Solyc00g005000.2' in GFF corresponds to three URLs:
+    #   https://solgenomics.net/locus/Solyc00g005000.2/view
     #   https://solgenomics.net/locus/Solyc00g005000/view
-    #   https://solgenomics.net/feature/17660839/details !!! note the use of internal IDs !!!
+    #   https://solgenomics.net/feature/17660839/details
     #
-    # The search term 'Solyc00g005000' returns a page with links to:
-    #   tomato locus  https://solgenomics.net/locus/8377/view !!! where the term is referred to as locus (name|symbol)
-    #   gene feature  https://solgenomics.net/feature/17660839/details
+    # Also note the use of 'locus' istead of 'gene' and iternal IDs.
     #
-    # However, related features such as mRNA, exon, intron do not resolve same way:
+    # Features such as mRNA, exon, intron do not resolve same way:
     #   mRNA:Solyc00g005000.2.1       https://solgenomics.net/feature/17660840/details
     #   exon:Solyc00g005000.2.1.1     https://solgenomics.net/feature/17660841/details
     #   exon:Solyc00g005000.2.1.2     https://solgenomics.net/feature/17660843/details
     #   intron:Solyc00g005000.2.1.1   https://solgenomics.net/feature/17660842/details
-    #   five_prime_UTR and three_prime_UTR do not seem to have corresponding URLs.
+    #   five_prime_UTR and three_prime_UTR do not to have corresponding URLs.
     #
-    # In principle, feature IDs in the 'attributes' column of a GFF file should be opaque.
-    # Currently, the IDs are prefixed with feature type, e.g. 'gene:Solyc00g005000.2'.
+    # Moreover, feature IDs are not opaque as these prefixed with type e.g.
+    #   gene:Solyc00g005000.2.
     #
-    # "Normalizing" feature IDs by removing the prefixes seems reasonable for most feature types, except
-    # for the UTRs, which would have ambiguous feature IDs, e.g., Solyc00g005000.2.1.0 for both
-    # 'five_prime_UTR:Solyc00g005000.2.1.0' and 'three_prime_UTR:Solyc00g005000.2.1.0'
-    #
+    # Normalizing feature IDs by removing the prefixes is reasonable for most
+    # feature types except for UTRs because of resulting ambiguity;
+    # for example, Solyc00g005000.2.1.0 for both
+    #   five_prime_UTR:Solyc00g005000.2.1.0
+    #   three_prime_UTR:Solyc00g005000.2.1.0
     return re.sub('gene:|mRNA:|CDS:|exon:|intron:|\w+UTR:', '', id, flags=re.IGNORECASE)
 
 
@@ -182,20 +180,21 @@ def get_feature_attrs(ft):
         return unquote('; '.join(sorted(des)))
 
 
-def triplify(db, rdf_format, cfg):
-    """Generate RDF triples from database using Direct Mapping approach.
+def triplify(self, rdf_format, cfg):
+    """Generate RDF triples from `FeatureDB` using Direct Mapping approach.
     """
-    g = Graph()
+    base_name, sfx = os.path.splitext(db_file)
+    graph = Graph()
 
     # setup namespace prefixes
     DCMITYPE = Namespace('http://purl.org/dc/dcmitype/')
-    g.bind('dcmitype', DCMITYPE)
-    g.bind('dcterms', DCTERMS)
+    graph.bind('dcmitype', DCMITYPE)
+    graph.bind('dcterms', DCTERMS)
 
     for (prefix, uri) in cfg.items('Ontologies'):
         # instantiate dynamically from config
         exec(prefix + " = Namespace('{0}')".format(uri))
-        g.bind(prefix.lower(), eval(prefix))
+        graph.bind(prefix.lower(), eval(prefix))
 
     # lookup table for RDF mime-types and file extensions
     format_to_filext = dict(
@@ -218,37 +217,41 @@ def triplify(db, rdf_format, cfg):
     description = cfg.get('GFF', 'description')
     taxon_id = cfg.getint('GFF', 'ncbitaxon_id')
     taxon_uri = OBO.term('NCBITaxon_{0}'.format(taxon_id))
-    genome_uri = URIRef(os.path.join(base_uri, 'genome',
-                                     species_name.replace(' ', '_')))
+    genome_uri = URIRef(os.path.join(
+        base_uri, 'genome', species_name.replace(' ', '_')))
+
     genome_type_uri = URIRef(cfg.get('FeatureToClass', 'genome'))
 
     # add genome info to graph
-    g.add((genome_uri, RDF.type, genome_type_uri))
-    g.add((genome_uri, RDF.type, DCMITYPE.Dataset))
-    g.add((genome_uri, RDFS.label, Literal(
+    graph.add((genome_uri, RDF.type, genome_type_uri))
+    graph.add((genome_uri, RDF.type, DCMITYPE.Dataset))
+    graph.add((genome_uri, RDFS.label, Literal(
         'genome of {0}'.format(species_name), lang="en")))
-    g.add((genome_uri, RDFS.comment, Literal(description, lang="en")))
-    g.add((genome_uri, DCTERMS.title, Literal(
+    graph.add((genome_uri, RDFS.comment, Literal(description, lang="en")))
+    graph.add((genome_uri, DCTERMS.title, Literal(
         'genome of {0}'.format(species_name), lang="en")))
-    g.add((genome_uri, DCTERMS.description, Literal(
+    graph.add((genome_uri, DCTERMS.description, Literal(
         description, lang="en")))
-    g.add((genome_uri, DCTERMS.source, URIRef(download_url)))
-    g.add((genome_uri, DCTERMS.creator, URIRef(creator_uri)))
-    g.add((genome_uri, DCTERMS.created, Literal(
+    graph.add((genome_uri, DCTERMS.source, URIRef(download_url)))
+    graph.add((genome_uri, DCTERMS.creator, URIRef(creator_uri)))
+    graph.add((genome_uri, DCTERMS.created, Literal(
         datetime.now().strftime("%Y-%m-%d"), datatype=XSD.date)))
-    g.add((genome_uri, DCTERMS.license, URIRef(license_uri)))
-    g.add((genome_uri, DCTERMS.term('format'),
-           Literal(rdf_mime_type, datatype=XSD.string)))
-    g.add((genome_uri, DCTERMS.hasVersion, Literal(version, datatype=XSD.string)))
+    graph.add((genome_uri, DCTERMS.license, URIRef(license_uri)))
+    graph.add((genome_uri, DCTERMS.term('format'), Literal(
+        rdf_mime_type, datatype=XSD.string)))
+    graph.add((genome_uri, DCTERMS.hasVersion, Literal(
+        version, datatype=XSD.string)))
     # SO predicate no domain/range defined
-    g.add((genome_uri, SO.genome_of, taxon_uri))
-    g.add((genome_uri, OBO.RO_0002162, taxon_uri))  # RO predicate 'in taxon'
-    g.add((taxon_uri, RDFS.label, Literal(
+    graph.add((genome_uri, SO.genome_of, taxon_uri))
+    # RO predicate 'in taxon'
+    graph.add((genome_uri, OBO.RO_0002162, taxon_uri))
+    graph.add((taxon_uri, RDFS.label, Literal(
         'NCBI Taxonomy ID: {0}'.format(taxon_id), datatype=XSD.string)))
-    g.add((taxon_uri, DCTERMS.identifier, Literal(
+    graph.add((taxon_uri, DCTERMS.identifier, Literal(
         taxon_id, datatype=XSD.positiveInteger)))
 
-    for feature in db.all_features():
+    # loop through all features in GFF
+    for feature in self.all_features():
         try:
             chromosome = str(feature.seqid)
             chromosome_uri = URIRef(os.path.join(
@@ -258,8 +261,8 @@ def triplify(db, rdf_format, cfg):
             feature_id = normalize_feature_id(feature.id)
             feature_type = feature.featuretype
             try:
-                feature_type = URIRef(cfg.get('FeatureRewrite', feature_type))
-            except:
+                feature_type = cfg.get('FeatureRewrite', feature_type)
+            except NoOptionError:
                 pass
             feature_uri = URIRef(os.path.join(
                 genome_uri, feature_type, feature_id))
@@ -272,74 +275,68 @@ def triplify(db, rdf_format, cfg):
             end_uri = URIRef('{0}#{1}'.format(chromosome_uri, feature.end))
 
             # add chromosome info to graph
-            # Note: the assumption is that the 'seqid' column refers to
-            # chromosome
-            g.add((chromosome_uri, RDF.type, chromosome_type_uri))
-            g.add((chromosome_uri, RDFS.label, Literal(
+            # Note: 'seqid' column refers to chromosome here
+            graph.add((chromosome_uri, RDF.type, chromosome_type_uri))
+            graph.add((chromosome_uri, RDFS.label, Literal(
                 'chromosome {0}'.format(chromosome), datatype=XSD.string)))
-            g.add((chromosome_uri, SO.part_of, genome_uri))
-
-            # add feature types and IDs to graph
-            g.add((feature_uri, RDF.type, feature_type_uri))
-            g.add((feature_uri, RDFS.label, Literal('{0} {1}'.format(
-                feature_type, feature_id), datatype=XSD.string)))
-            g.add((feature_uri, DCTERMS.identifier,
-                   Literal(feature_id, datatype=XSD.string)))
+            graph.add((chromosome_uri, SO.part_of, genome_uri))
+            graph.add((feature_uri, RDF.type, feature_type_uri))
+            graph.add((feature_uri, RDFS.label, Literal(
+                '{0} {1}'.format(feature_type, feature_id), datatype=XSD.string)))
+            graph.add((feature_uri, DCTERMS.identifier, Literal(
+                feature_id, datatype=XSD.string)))
 
             # add feature descriptions (from the attributes field) to graph
             des = get_feature_attrs(feature)
             if des is not None:
-                g.add((feature_uri, RDFS.comment, Literal(des, datatype=XSD.string)))
+                graph.add((feature_uri, RDFS.comment, Literal(
+                    des, datatype=XSD.string)))
 
             # add feature start/end coordinates and strand info to graph
-            g.add((feature_uri, FALDO.location, region_uri))
-            g.add((region_uri, RDF.type, FALDO.Region))
-            g.add((region_uri, RDFS.label, Literal(
+            graph.add((feature_uri, FALDO.location, region_uri))
+            graph.add((region_uri, RDF.type, FALDO.Region))
+            graph.add((region_uri, RDFS.label, Literal(
                 'chromosome {0}:{1}-{2}'.format(chromosome, feature.start, feature.end))))
-            g.add((region_uri, FALDO.begin, start_uri))
-            g.add((start_uri, RDF.type, FALDO.ExactPosition))
-            g.add((start_uri, RDF.type, strand_type_uri))
-            g.add((start_uri, RDFS.label, Literal(
+            graph.add((region_uri, FALDO.begin, start_uri))
+            graph.add((start_uri, RDF.type, FALDO.ExactPosition))
+            graph.add((start_uri, RDF.type, strand_type_uri))
+            graph.add((start_uri, RDFS.label, Literal(
                 'chromosome {0}:{1}-*'.format(chromosome, feature.start))))
-            g.add((start_uri, FALDO.position, Literal(
+            graph.add((start_uri, FALDO.position, Literal(
                 feature.start, datatype=XSD.positiveInteger)))
-            g.add((start_uri, FALDO.reference, chromosome_uri))
-            g.add((region_uri, FALDO.end, end_uri))
-            g.add((end_uri, RDF.type, FALDO.ExactPosition))
-            g.add((end_uri, RDF.type, strand_type_uri))
-            g.add((end_uri, RDFS.label, Literal(
+            graph.add((start_uri, FALDO.reference, chromosome_uri))
+            graph.add((region_uri, FALDO.end, end_uri))
+            graph.add((end_uri, RDF.type, FALDO.ExactPosition))
+            graph.add((end_uri, RDF.type, strand_type_uri))
+            graph.add((end_uri, RDFS.label, Literal(
                 'chromosome {0}:*-{1}'.format(chromosome, feature.end))))
-            g.add((end_uri, FALDO.position, Literal(
+            graph.add((end_uri, FALDO.position, Literal(
                 feature.end, datatype=XSD.positiveInteger)))
-            g.add((end_uri, FALDO.reference, chromosome_uri))
-            # Note: phase info is mandatory for CDS feature types but can't
-            # find a corresponding ontological term
+            graph.add((end_uri, FALDO.reference, chromosome_uri))
+            # Note: phase is mandatory for CDS but has no corresponding term in
+            # ontology
 
             # add parent-child relationships between features to graph
-            for child in db.children(feature, level=1):
+            for child in self.children(feature, level=1):
                 child_feature_id = normalize_feature_id(child.id)
                 child_feature_type = child.featuretype
                 try:
                     child_feature_type = cfg.get(
                         'FeatureRewrite', child_feature_type)
-                except:
+                except NoOptionError:
                     pass
                 child_feature_uri = URIRef(os.path.join(
                     genome_uri, child_feature_type, child_feature_id))
                 child_feature_type_uri = URIRef(
                     cfg.get('FeatureToClass', child_feature_type))
-                # use the inverse of part_of
-                g.add((feature_uri, SO.has_part, child_feature_uri))
-
+                graph.add((feature_uri, SO.has_part, child_feature_uri))
                 if feature_type == 'gene' and child_feature_type == 'prim_transcript':
-                    g.add((feature_uri, SO.transcribed_to, child_feature_uri))
-        except KeyError:
+                    graph.add((feature_uri, SO.transcribed_to, child_feature_uri))
+        except:
             pass
-
-    outfile = os.path.splitext(db.dbfn)[0] + format_to_filext[rdf_format][1]
-    with open(outfile, 'w') as fout:
-        fout.write(g.serialize(format=rdf_format))
-
+    rdf_file = base_name + format_to_filext[rdf_format][1]
+    with open(rdf_file, 'w') as fout:
+        fout.write(graph.serialize(format=rdf_format))
 
 if __name__ == '__main__':
     args = docopt(__doc__, version=__version__)
@@ -379,13 +376,12 @@ if __name__ == '__main__':
     else:  # rdf mode
         rdf_format = args['-o']
         cfg_file = args['-c']
+        SafeConfigParser.validate = validate  # add new method
         cfg = SafeConfigParser()
         cfg.optionxform = str  # option names case sensitive
         cfg.read(cfg_file)
-        SafeConfigParser.validate = validate  # add new method
         cfg.validate()
-
-        # serialize RDF graphs from db files
+        gff.FeatureDB.triplify = triplify # add new method
         for db_file in args['DB_FILE']:
             db = gff.FeatureDB(db_file)
-            triplify(db, rdf_format, cfg)
+            db.triplify(rdf_format, cfg)
