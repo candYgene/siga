@@ -59,7 +59,7 @@ import sqlite3 as sql
 
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.4.5'
+__version__ = '0.4.6'
 __status__ = 'alpha'
 __license__ = 'Apache License, Version 2.0'
 
@@ -79,13 +79,13 @@ def validate(self):
     """Validate an instance of `SafeConfigParser` class. Check the presence of mandatory sections/options.
     """
     try:
-        sections = ('GFF', 'RDF', 'FeatureRewrite', 'FeatureToClass',
+        sections = ('GFF', 'RDF', 'FeatureRewrite', 'FeatureAttributes', 'FeatureToClass',
                     'DNAstrandToClass', 'Ontologies')
         options = ('download_url', 'base_uri', 'creator', 'license')
         for s in sections:
             for k, v in self.items(s):
                 try:
-                    if (s in sections[:2] and k in options) or s in sections[3:]:
+                    if (s in sections[:2] and k in options) or s in sections[4:]:
                         is_uri(v)
                 except ValueError, err:
                     print(str(err), file=sys.stderr)
@@ -158,22 +158,15 @@ def normalize_feature_id(id):
     return re.sub('gene:|mRNA:|CDS:|exon:|intron:|\w+UTR:', '', id, flags=re.IGNORECASE)
 
 
-def get_feature_attrs(ft):
-    """Concatenate feature attributes (9th column in GFF) into a single string.
+def get_feature_attrs(ft, attrs):
+    """Concatenate feature attributes into a single string; only tags listed
+       in the 'FeatureAttributes' section of the config file will be used.
     """
-    attrs = {}  # selected attributes
     des = []
-
-    for attr in ['Name', 'Note', 'Alias', 'Ontology_term', 'Interpro2go_term', 'Sifter_term']:
-        attrs[attr] = None
-        attrs[attr.lower()] = None
-
-    for key in ft.attributes.keys():
-        if key in attrs:
-            val = ft[key]
-            val = ', '.join(val) if type(val) == list else str(val)
-            des.append('{0}: {1}'.format(key, val.encode('utf-8')))
-
+    for k,v in ft.attributes.iteritems():
+        if k.lower() in attrs:
+            v = ', '.join(v) if type(v) == list else str(v)
+            des.append('{0}: {1}'.format(k, v.encode('utf-8')))
     if len(des) == 0:
         return None
     else:
@@ -183,11 +176,20 @@ def get_feature_attrs(ft):
 def triplify(self, rdf_format, cfg):
     """Generate RDF triples from `FeatureDB` using Direct Mapping approach.
     """
+    # lookup table for RDF mime-types and file extensions
+    format_to_filext = dict(
+        turtle=['text/turtle', '.ttl'],
+        nt=['application/n-triples', '.nt'],
+        n3=['text/n3', '.n3'],
+        xml=['application/rdf+xml', '.rdf'])
+    if rdf_format not in format_to_filext:
+        raise IOError(
+            "Unsupported RDF serialization '{0}'.".format(rdf_format))
     base_name, sfx = os.path.splitext(self.dbfn)
-    graph = Graph()
 
     # setup namespace prefixes
     DCMITYPE = Namespace('http://purl.org/dc/dcmitype/')
+    graph = Graph()
     graph.bind('dcmitype', DCMITYPE)
     graph.bind('dcterms', DCTERMS)
 
@@ -195,17 +197,6 @@ def triplify(self, rdf_format, cfg):
         # instantiate dynamically from config
         exec(prefix + " = Namespace('{0}')".format(uri))
         graph.bind(prefix.lower(), eval(prefix))
-
-    # lookup table for RDF mime-types and file extensions
-    format_to_filext = dict(
-        turtle=['text/turtle', '.ttl'],
-        nt=['application/n-triples', '.nt'],
-        n3=['text/n3', '.n3'],
-        xml=['application/rdf+xml', '.rdf'])
-
-    if rdf_format not in format_to_filext:
-        raise IOError(
-            "Unsupported RDF serialization '{0}'.".format(rdf_format))
 
     rdf_mime_type = format_to_filext[rdf_format][0]
     base_uri = URIRef(cfg.get('RDF', 'base_uri'))
@@ -219,8 +210,8 @@ def triplify(self, rdf_format, cfg):
     taxon_uri = OBO.term('NCBITaxon_{0}'.format(taxon_id))
     genome_uri = URIRef(os.path.join(
         base_uri, 'genome', species_name.replace(' ', '_')))
-
     genome_type_uri = URIRef(cfg.get('FeatureToClass', 'genome'))
+    attrs = dict([(k.lower(),None) for k in cfg.options('FeatureAttributes')])
 
     # add genome info to graph
     graph.add((genome_uri, RDF.type, genome_type_uri))
@@ -286,8 +277,8 @@ def triplify(self, rdf_format, cfg):
             graph.add((feature_uri, DCTERMS.identifier, Literal(
                 feature_id, datatype=XSD.string)))
 
-            # add feature descriptions (from the attributes field) to graph
-            des = get_feature_attrs(feature)
+            # add feature description based on the attributes field
+            des = get_feature_attrs(feature, attrs)
             if des is not None:
                 graph.add((feature_uri, RDFS.comment, Literal(
                     des, datatype=XSD.string)))
