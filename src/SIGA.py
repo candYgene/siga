@@ -11,7 +11,7 @@ Usage:
   SIGA.py -h|--help
   SIGA.py -v|--version
   SIGA.py db [-ruV] [-d DB_FILE | -e DB_FILEXT] GFF_FILE...
-  SIGA.py rdf [-V] [-o FORMAT] -c CFG_FILE DB_FILE...
+  SIGA.py rdf [-V] [-o FORMAT] [-c CFG_FILE] DB_FILE...
 
 Arguments:
   GFF_FILE...      Input file(s) in GFF version 2 or 3.
@@ -20,8 +20,8 @@ Arguments:
 Options:
   -h, --help
   -v, --version
-  -V, --verbose    Show verbose output (debug mode).
-  -c FILE          Set the path of config file.
+  -V, --verbose    Show verbose output in debug mode.
+  -c FILE          Set the path of config file [default: config.ini]
   -d DB_FILE       Create a database from GFF file(s).
   -e DB_FILEXT     Set the database file extension [default: .db].
   -r               Check the referential integrity of the database(s).
@@ -59,7 +59,7 @@ import sqlite3 as sql
 
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.4.4'
+__version__ = '0.4.5'
 __status__ = 'alpha'
 __license__ = 'Apache License, Version 2.0'
 
@@ -183,7 +183,7 @@ def get_feature_attrs(ft):
 def triplify(self, rdf_format, cfg):
     """Generate RDF triples from `FeatureDB` using Direct Mapping approach.
     """
-    base_name, sfx = os.path.splitext(db_file)
+    base_name, sfx = os.path.splitext(self.dbfn)
     graph = Graph()
 
     # setup namespace prefixes
@@ -341,6 +341,7 @@ def triplify(self, rdf_format, cfg):
 if __name__ == '__main__':
     args = docopt(__doc__, version=__version__)
     debug = args['--verbose']
+    sys.tracebacklimit = debug
 
     if args['db'] is True:  # db mode
         unique_keys = 'create_unique' if args['-u'] is True else 'error'
@@ -376,6 +377,8 @@ if __name__ == '__main__':
     else:  # rdf mode
         rdf_format = args['-o']
         cfg_file = args['-c']
+        if os.path.exists(cfg_file) is False:
+            raise IOError("Config file '{0}' not found.".format(cfg_file))
         SafeConfigParser.validate = validate  # add new method
         cfg = SafeConfigParser()
         cfg.optionxform = str  # option names case sensitive
