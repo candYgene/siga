@@ -11,15 +11,15 @@ Usage:
   SIGA.py -h|--help
   SIGA.py -v|--version
   SIGA.py db [-ruV] [-d DB_FILE | -e DB_FILEXT] GFF_FILE...
-  SIGA.py rdf [-V] [-o FORMAT] [-c CFG_FILE] DB_FILE...
+  SIGA.py rdf [-sV] [-o FORMAT] [-c CFG_FILE] DB_FILE...
 
 Arguments:
   GFF_FILE...      Input file(s) in GFF version 2 or 3.
   DB_FILE...       Input database file(s) in SQLite.
 
 Options:
-  -h, --help
-  -v, --version
+  -h, --help       Show usage info.
+  -v, --version    Show program version.
   -V, --verbose    Show verbose output in debug mode.
   -c FILE          Set the path of config file [default: config.ini]
   -d DB_FILE       Create a database from GFF file(s).
@@ -45,8 +45,11 @@ Options:
 
 from __future__ import print_function
 from docopt import docopt
-from rdflib import Graph, URIRef, Literal
+from rdflib import plugin, Graph, URIRef, Literal
 from rdflib.namespace import Namespace, RDF, RDFS, XSD, DCTERMS
+from rdflib.store import Store
+from rdflib_sqlalchemy import registerplugins
+from sqlalchemy.exc import IntegrityError
 from urllib2 import urlparse, unquote
 from datetime import datetime
 from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
@@ -56,10 +59,11 @@ import sys
 import re
 import gffutils as gff
 import sqlite3 as sql
+import logging
 
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.4.6'
+__version__ = '0.4.7'
 __status__ = 'alpha'
 __license__ = 'Apache License, Version 2.0'
 
@@ -187,9 +191,16 @@ def triplify(self, rdf_format, cfg):
             "Unsupported RDF serialization '{0}'.".format(rdf_format))
     base_name, sfx = os.path.splitext(self.dbfn)
 
+    # add RDF persistence using SQLite
+    # registerplugins()
+    # db_file = '{0}_rdf{1}'.format(base_name, sfx)
+    # store = plugin.get('SQLAlchemy', Store)(identifier=URIRef(base_name),
+    #     configuration='sqlite:///{0}'.format(db_file)) # use abs path
+    # graph = Graph(store)
+    graph = Graph()
+
     # setup namespace prefixes
     DCMITYPE = Namespace('http://purl.org/dc/dcmitype/')
-    graph = Graph()
     graph.bind('dcmitype', DCMITYPE)
     graph.bind('dcterms', DCTERMS)
 
@@ -242,89 +253,92 @@ def triplify(self, rdf_format, cfg):
         taxon_id, datatype=XSD.positiveInteger)))
 
     # loop through all features in GFF
-    for feature in self.all_features():
+    for ft in self.all_features():
+        chromosome = str(ft.seqid)
+        chromosome_uri = URIRef(os.path.join(
+            genome_uri, 'chromosome', chromosome))
+        chromosome_type_uri = URIRef(
+            cfg.get('FeatureToClass', 'chromosome'))
+        feature_id = normalize_feature_id(ft.id)
+        feature_type = ft.featuretype
         try:
-            chromosome = str(feature.seqid)
-            chromosome_uri = URIRef(os.path.join(
-                genome_uri, 'chromosome', chromosome))
-            chromosome_type_uri = URIRef(
-                cfg.get('FeatureToClass', 'chromosome'))
-            feature_id = normalize_feature_id(feature.id)
-            feature_type = feature.featuretype
-            try:
-                feature_type = cfg.get('FeatureRewrite', feature_type)
-            except NoOptionError:
-                pass
-            feature_uri = URIRef(os.path.join(
-                genome_uri, feature_type, feature_id))
-            feature_type_uri = URIRef(cfg.get('FeatureToClass', feature_type))
-            strand_type_uri = URIRef(
-                cfg.get('DNAstrandToClass', feature.strand))
-            region_uri = URIRef(
-                '{0}#{1}-{2}'.format(chromosome_uri, feature.start, feature.end))
-            start_uri = URIRef('{0}#{1}'.format(chromosome_uri, feature.start))
-            end_uri = URIRef('{0}#{1}'.format(chromosome_uri, feature.end))
+            feature_type = cfg.get('FeatureRewrite', feature_type)
+        except NoOptionError:
+            pass
+        feature_uri = URIRef(os.path.join(
+            genome_uri, feature_type, feature_id))
+        feature_type_uri = URIRef(cfg.get('FeatureToClass', feature_type))
+        strand_type_uri = URIRef(
+            cfg.get('DNAstrandToClass', ft.strand))
+        region_uri = URIRef(
+            '{0}#{1}-{2}'.format(chromosome_uri, ft.start, ft.end))
+        start_uri = URIRef('{0}#{1}'.format(chromosome_uri, ft.start))
+        end_uri = URIRef('{0}#{1}'.format(chromosome_uri, ft.end))
 
-            # add chromosome info to graph
-            # Note: 'seqid' column refers to chromosome here
+        # add chromosome info to graph
+        try:
             graph.add((chromosome_uri, RDF.type, chromosome_type_uri))
             graph.add((chromosome_uri, RDFS.label, Literal(
                 'chromosome {0}'.format(chromosome), datatype=XSD.string)))
             graph.add((chromosome_uri, SO.part_of, genome_uri))
-            graph.add((feature_uri, RDF.type, feature_type_uri))
-            graph.add((feature_uri, RDFS.label, Literal(
-                '{0} {1}'.format(feature_type, feature_id), datatype=XSD.string)))
-            graph.add((feature_uri, DCTERMS.identifier, Literal(
-                feature_id, datatype=XSD.string)))
+        except IntegrityError:
+            pass
+        graph.add((feature_uri, RDF.type, feature_type_uri))
+        graph.add((feature_uri, RDFS.label, Literal(
+            '{0} {1}'.format(feature_type, feature_id), datatype=XSD.string)))
+        graph.add((feature_uri, DCTERMS.identifier, Literal(
+            feature_id, datatype=XSD.string)))
 
-            # add feature description based on the attributes field
-            des = get_feature_attrs(feature, attrs)
-            if des is not None:
-                graph.add((feature_uri, RDFS.comment, Literal(
-                    des, datatype=XSD.string)))
+        # add description according the attributes field
+        des = get_feature_attrs(ft, attrs)
+        if des is not None:
+            graph.add((feature_uri, RDFS.comment, Literal(
+                des, datatype=XSD.string)))
 
-            # add feature start/end coordinates and strand info to graph
+        # add feature start/end coordinates and strand info to graph
+        try:
             graph.add((feature_uri, FALDO.location, region_uri))
             graph.add((region_uri, RDF.type, FALDO.Region))
             graph.add((region_uri, RDFS.label, Literal(
-                'chromosome {0}:{1}-{2}'.format(chromosome, feature.start, feature.end))))
+                'chromosome {0}:{1}-{2}'.format(chromosome, ft.start, ft.end))))
             graph.add((region_uri, FALDO.begin, start_uri))
             graph.add((start_uri, RDF.type, FALDO.ExactPosition))
             graph.add((start_uri, RDF.type, strand_type_uri))
             graph.add((start_uri, RDFS.label, Literal(
-                'chromosome {0}:{1}-*'.format(chromosome, feature.start))))
+                'chromosome {0}:{1}-*'.format(chromosome, ft.start))))
             graph.add((start_uri, FALDO.position, Literal(
-                feature.start, datatype=XSD.positiveInteger)))
+                ft.start, datatype=XSD.positiveInteger)))
             graph.add((start_uri, FALDO.reference, chromosome_uri))
             graph.add((region_uri, FALDO.end, end_uri))
             graph.add((end_uri, RDF.type, FALDO.ExactPosition))
             graph.add((end_uri, RDF.type, strand_type_uri))
             graph.add((end_uri, RDFS.label, Literal(
-                'chromosome {0}:*-{1}'.format(chromosome, feature.end))))
+                'chromosome {0}:*-{1}'.format(chromosome, ft.end))))
             graph.add((end_uri, FALDO.position, Literal(
-                feature.end, datatype=XSD.positiveInteger)))
+                ft.end, datatype=XSD.positiveInteger)))
             graph.add((end_uri, FALDO.reference, chromosome_uri))
-            # Note: phase is mandatory for CDS but has no corresponding term in
-            # ontology
-
-            # add parent-child relationships between features to graph
-            for child in self.children(feature, level=1):
-                child_feature_id = normalize_feature_id(child.id)
-                child_feature_type = child.featuretype
-                try:
-                    child_feature_type = cfg.get(
-                        'FeatureRewrite', child_feature_type)
-                except NoOptionError:
-                    pass
-                child_feature_uri = URIRef(os.path.join(
-                    genome_uri, child_feature_type, child_feature_id))
-                child_feature_type_uri = URIRef(
-                    cfg.get('FeatureToClass', child_feature_type))
-                graph.add((feature_uri, SO.has_part, child_feature_uri))
-                if feature_type == 'gene' and child_feature_type == 'prim_transcript':
-                    graph.add((feature_uri, SO.transcribed_to, child_feature_uri))
-        except:
+        except IntegrityError:
             pass
+        # Note: phase is mandatory for CDS but has no corresponding term in
+        # ontology
+
+        # add parent-child feature relationships to graph
+        # for child in self.children(ft, level=1):
+        #     child_feature_id = normalize_feature_id(child.id)
+        #     child_feature_type = child.featuretype
+        #     try:
+        #         child_feature_type = cfg.get(
+        #             'FeatureRewrite', child_feature_type)
+        #     except NoOptionError:
+        #         pass
+        #     child_feature_uri = URIRef(os.path.join(
+        #         genome_uri, child_feature_type, child_feature_id))
+        #     child_feature_type_uri = URIRef(
+        #         cfg.get('FeatureToClass', child_feature_type))
+        #     graph.add((feature_uri, SO.has_part, child_feature_uri))
+        #     if feature_type == 'gene' and child_feature_type == 'prim_transcript':
+        #         graph.add((feature_uri, SO.transcribed_to, child_feature_uri))
+
     rdf_file = base_name + format_to_filext[rdf_format][1]
     with open(rdf_file, 'w') as fout:
         fout.write(graph.serialize(format=rdf_format))
@@ -333,6 +347,8 @@ if __name__ == '__main__':
     args = docopt(__doc__, version=__version__)
     debug = args['--verbose']
     sys.tracebacklimit = debug
+    logging.basicConfig(format='%(asctime)s %(message)s',
+       datefmt='%m/%d/%Y %I:%M:%S %p')
 
     if args['db'] is True:  # db mode
         unique_keys = 'create_unique' if args['-u'] is True else 'error'
@@ -377,5 +393,5 @@ if __name__ == '__main__':
         cfg.validate()
         gff.FeatureDB.triplify = triplify # add new method
         for db_file in args['DB_FILE']:
-            db = gff.FeatureDB(db_file)
+            db = gff.FeatureDB(os.path.abspath(db_file))
             db.triplify(rdf_format, cfg)
