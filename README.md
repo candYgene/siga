@@ -20,7 +20,8 @@ SIGA.py
   - [Turtle](https://www.w3.org/TeamSubmission/turtle/)
   - [Notation3](https://www.w3.org/DesignIssues/Notation3.html) (N3)
 - supported genetic feature types, feature rewrites and ontology mappings via config file
-  - sequence feature relations described by [SO(FA)](http://www.sequenceontology.org/)  (e.g. has_part_, _part_of_, _transcribed_to_, _genome_of_)
+  - sequence feature types & relations described by [SO(FA)](http://www.sequenceontology.org/)
+    (e.g. _genome_, _chromosome_, _gene_, _mRNA_,_has part_, _part of_, _transcribed to_, _genome of_)
   - sequence feature locations described by [FALDO](https://github.com/JervenBolleman/FALDO)
 - parent-child feature relationships checked for referential integrity
 
