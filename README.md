@@ -19,9 +19,9 @@ SIGA.py
   - [N-Triples](https://www.w3.org/TR/n-triples/)
   - [Turtle](https://www.w3.org/TeamSubmission/turtle/)
   - [Notation3](https://www.w3.org/DesignIssues/Notation3.html) (N3)
-- supported feature (keys) types: *genome, chromosome, gene, prim_transcript, mRNA, CDS, exon, intron, five_prime_UTR, three_prime_UTR, polyA_site, polyA_sequence, variation*
-- supported feature relations ([SO(FA)](http://www.sequenceontology.org/) properties): _has_part_/_part_of_, _transcribed_to_, _genome_of_
-- sequence feature locations described by [FALDO](https://github.com/JervenBolleman/FALDO)
+- supported genetic feature types, feature rewrites and ontology mappings via config file
+  - sequence feature relations described by [SO(FA)](http://www.sequenceontology.org/)  (e.g. has_part_, _part_of_, _transcribed_to_, _genome_of_)
+  - sequence feature locations described by [FALDO](https://github.com/JervenBolleman/FALDO)
 - parent-child feature relationships checked for referential integrity
 
 ## Requirements ##
@@ -37,8 +37,8 @@ SIGA.py
 
 Install and activate virtualenv
 
-    virtualenv sigaenv
-    source sigaenv/bin/activate
+    virtualenv .sigaenv
+    source .sigaenv/bin/activate
 
 Use `requirements.txt` from repository to update the virtual env with the necessary packages:
 
@@ -130,7 +130,7 @@ Bulk data loading:
 rdf_loader_run() ;
 ```
 
-Re-index triples for full-text search:
+Re-index triples for full-text search (via Faceted Browser):
 
 ```
 DB.DBA.VT_INC_INDEX_DB_DBA_RDF_OBJ() ;
