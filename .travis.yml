@@ -1,0 +1,12 @@
+language: python
+sudo: false
+dist: trusty
+python:
+  - "2.7"
+install:
+  - pip install -r requirements.txt
+before_script:
+  - cd src
+script:
+  - python SIGA.py db -rV ../examples/features.gff3
+  - python SIGA.py rdf -c config.ini ../examples/features.db
