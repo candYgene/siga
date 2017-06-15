@@ -45,21 +45,26 @@ Options:
 
 from __future__ import print_function
 from docopt import docopt
-from rdflib import Graph, URIRef, Literal
-from rdflib.namespace import Namespace, RDF, RDFS, XSD, DCTERMS
-from urllib2 import urlparse, unquote
+from rdflib import (Graph, URIRef, Literal)
+from rdflib.namespace import (Namespace, RDF, RDFS, XSD, DCTERMS)
 from datetime import datetime
-from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
 
 import os
 import sys
 import re
 import gffutils as gff
 import sqlite3 as sql
-
+import six
+if six.PY2:
+    from urlparse import urlparse
+    from urllib2 import unquote
+    from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
+else:
+    from urllib.request import urlparse, unquote
+    from configparser import SafeConfigParser, NoSectionError, NoOptionError
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.4.6'
+__version__ = '0.4.8'
 __status__ = 'alpha'
 __license__ = 'Apache License, Version 2.0'
 
@@ -67,7 +72,7 @@ __license__ = 'Apache License, Version 2.0'
 def is_uri(uri):
     """Check if the input string is a URI.
     """
-    u = urlparse.urlparse(uri)
+    u = urlparse(uri)
     if u.scheme not in ('http', 'https', 'ftp'):
         raise ValueError("Unsupported URI scheme in '{0}'.".format(uri))
     if u.netloc is '':
@@ -87,10 +92,10 @@ def validate(self):
                 try:
                     if (s in sections[:2] and k in options) or s in sections[4:]:
                         is_uri(v)
-                except ValueError, err:
+                except ValueError as err:
                     print(str(err), file=sys.stderr)
                     sys.exit(1)
-    except NoSectionError, err:
+    except NoSectionError as err:
         print(str(err), file=sys.stderr)
         sys.exit(1)
     try:
@@ -99,7 +104,7 @@ def validate(self):
         self.get('GFF', 'download_url')
         try:
             self.getint('GFF', 'ncbitaxon_id')
-        except ValueError, err:
+        except ValueError as err:
             print('NCBI Taxon ID: {0}'.format(err), file=sys.stderr)
             sys.exit(1)
         self.get('RDF', 'version')
@@ -108,7 +113,7 @@ def validate(self):
         self.get('RDF', 'license')
         self.get('FeatureToClass', 'genome')
         self.get('FeatureToClass', 'chromosome')
-    except NoOptionError, err:
+    except NoOptionError as err:
         print(str(err), file=sys.stderr)
         sys.exit(1)
 
@@ -195,7 +200,7 @@ def triplify(self, rdf_format, cfg):
 
     for (prefix, uri) in cfg.items('Ontologies'):
         # instantiate dynamically from config
-        exec(prefix + " = Namespace('{0}')".format(uri))
+        exec("{0} = Namespace('{1}')".format(prefix, uri), globals())
         graph.bind(prefix.lower(), eval(prefix))
 
     rdf_mime_type = format_to_filext[rdf_format][0]
@@ -327,7 +332,7 @@ def triplify(self, rdf_format, cfg):
             pass
     rdf_file = base_name + format_to_filext[rdf_format][1]
     with open(rdf_file, 'w') as fout:
-        fout.write(graph.serialize(format=rdf_format))
+        fout.write(graph.serialize(format=rdf_format).decode('utf-8'))
 
 if __name__ == '__main__':
     args = docopt(__doc__, version=__version__)
@@ -361,7 +366,7 @@ if __name__ == '__main__':
                 except sql.OperationalError:
                     raise IOError(
                         "Database file '{0}' already exists.".format(db_file))
-                except sql.IntegrityError, err:
+                except sql.IntegrityError as err:
                     remove_file(db_file)
                     raise IOError(
                         "{0} in database '{1}'.".format(err, db_file))
