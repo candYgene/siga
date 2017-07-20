@@ -15,15 +15,15 @@ text files in the Generic Feature Format ([GFF](https://github.com/The-Sequence-
 </div>
 
 ## Key features ##
-- process multiple input files in GFF (versions 2 and 3)
-- genome annotations (features) stored in [SQLite](https://sqlite.org/) database and serialized as RDF graph(s) in plain text formats:
+- process multiple input files in GFF (version 2 or 3)
+- genome annotations (sequence features) stored in a [SQLite](https://sqlite.org/) database and serialized as RDF graph(s) in plain text formats:
   - [XML](https://www.w3.org/TR/rdf-syntax-grammar/)
   - [N-Triples](https://www.w3.org/TR/n-triples/)
   - [Turtle](https://www.w3.org/TeamSubmission/turtle/)
   - [Notation3](https://www.w3.org/DesignIssues/Notation3.html) (N3)
-- supported genetic feature types, feature rewrites and ontology mappings via config file
+- feature types, feature type rewrites/amendments and ontology mappings _via_ a config file
   - sequence feature types & relations described by [SO(FA)](http://www.sequenceontology.org/)
-    (e.g. _genome_, _chromosome_, _gene_, _mRNA_,_has part_, _part of_, _transcribed to_, _genome of_)
+    (e.g. _genome_, _chromosome_, _gene_, _mRNA_,_has part_, _part of_, _genome of_, _transcribed to_, _translated_to_)
   - sequence feature locations described by [FALDO](https://github.com/JervenBolleman/FALDO)
 - parent-child feature relationships checked for referential integrity
 
@@ -33,7 +33,7 @@ text files in the Generic Feature Format ([GFF](https://github.com/The-Sequence-
     docopt (0.6.2
     RDFLib (4.2.2)
     gffutils (https://github.com/arnikz/gffutils)
-    optional: an RDF store (e.g. Virtuoso or Berkeley DB) to query ingested data using SPARQL
+    optional: RDF store to query ingested data using SPARQL (e.g. using Virtuoso or Berkeley DB)
 
 
 ## Installation ##
@@ -59,11 +59,12 @@ wget ftp://ftp.solgenomics.net/genomes/Solanum_lycopersicum/annotation/ITAG2.4_r
 wget http://solanaceae.plantbiology.msu.edu/data/PGSC_DM_V403_genes.gff.zip
 ```
 
+
 **Usage**
 
 `cd src`
 
-Two-steps process to serialize triples in RDF Turtle (default):
+To serialize triples in RDF (default: `turtle` format) involes two steps:
 
 1. GFF to DB
 
@@ -77,13 +78,14 @@ Two-steps process to serialize triples in RDF Turtle (default):
     python SIGA.py rdf -c config.ini ../examples/ITAG2.4_gene_models.db
     ```
 
-Summary of input/output files:
+Summary of I/O files:
 
 `ITAG2.4_gene_models.gff3` # GFF file
 
 `ITAG2.4_gene_models.db`   # SQLite database
 
 `ITAG2.4_gene_models.ttl`  # RDF/Turtle file
+
 
 **Import RDF graph into Virtuoso RDF Quad Store**
 
@@ -134,12 +136,14 @@ FROM <http://solgenomics.net/genome/Solanum_lycopersicum>
 WHERE { ?s ?p ?o } ;
 ```
 
+
 **Alternatively, persist RDF graph in Berkeley DB using the [Redland](http://librdf.org/) RDF processor**
 
 ```
 rdfproc ITAG2.4_gene_models parse ITAG2.4_gene_models.ttl turtle
 rdfproc ITAG2.4_gene_models serialize turtle
 ```
+
 
 ## How to cite ##
 
@@ -149,4 +153,4 @@ Please, refer to _SIGA.py_ in scientific publications by this persistent identif
 
 
 ## Licence ##
-The software is released under Apache License 2.0 license.
+The software is released under Apache License, Version 2.0.
