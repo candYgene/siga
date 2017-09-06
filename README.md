@@ -69,13 +69,13 @@ To serialize triples in RDF (default: `turtle` format) involes two steps:
 1. GFF to DB
 
     ```
-    python SIGA.py db -rV ../examples/ITAG2.4_gene_models.gff3
+    python SIGA.py db -rV ITAG2.4_gene_models.gff3
     ```
 
 2. DB to RDF
 
     ```
-    python SIGA.py rdf -c config.ini ../examples/ITAG2.4_gene_models.db
+    python SIGA.py rdf -c config.ini ITAG2.4_gene_models.db
     ```
 
 Summary of I/O files:
