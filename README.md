@@ -15,17 +15,19 @@ text files in the Generic Feature Format ([GFF](https://github.com/The-Sequence-
 </div>
 
 ## Key features ##
-- process multiple input files in GFF (version 2 or 3)
-- genome annotations (sequence features) stored in a [SQLite](https://sqlite.org/) database and serialized as RDF graph(s) in plain text formats:
+- _Input_:
+  - one or more files in the GFF format (version 2 or 3)
+  - `config.ini` file with ontology mappings and feature type amendments (if applicable)
+- _Output_: genomic features stored in a [SQLite](https://sqlite.org/) database or serialized in one of the RDF formats:
   - [XML](https://www.w3.org/TR/rdf-syntax-grammar/)
   - [N-Triples](https://www.w3.org/TR/n-triples/)
   - [Turtle](https://www.w3.org/TeamSubmission/turtle/)
   - [Notation3](https://www.w3.org/DesignIssues/Notation3.html) (N3)
-- feature types, feature type rewrites/amendments and ontology mappings _via_ a config file
-  - sequence feature types & relations described by [SO(FA)](http://www.sequenceontology.org/)
-    (e.g. _genome_, _chromosome_, _gene_, _mRNA_,_has part_, _part of_, _genome of_, _transcribed to_, _translated_to_)
-  - sequence feature locations described by [FALDO](https://github.com/JervenBolleman/FALDO)
-- parent-child feature relationships checked for referential integrity
+- check referential integrity for parent-child feature relationships in SQLite
+- controlled vocabularies and ontologies used:
+  - [DCMI](http://dublincore.org/documents/dcmi-terms/) terms (e.g. _creator_, _hasVersion_, _license_)
+  - Sequence Ontology ([SO](http://www.sequenceontology.org/)) to describe feature types (e.g. _genome_, _chromosome_, _gene_, _transcript_) and their relationships (e.g. _has part_/_part of_, _genome of_, _transcribed to_, _translated_to_)
+  - Feature Annotation Location Description Ontology ([FALDO](https://github.com/JervenBolleman/FALDO))
 
 ## Requirements ##
 
@@ -80,12 +82,9 @@ To serialize triples in RDF (default: `turtle` format) involes two steps:
 
 Summary of I/O files:
 
-`ITAG2.4_gene_models.gff3` # GFF file
-
-`ITAG2.4_gene_models.db`   # SQLite database
-
-`ITAG2.4_gene_models.ttl`  # RDF/Turtle file
-
+- GFF file: `ITAG2.4_gene_models.gff3`
+- SQLite db: `ITAG2.4_gene_models.db`
+- RDF Turtle file: `ITAG2.4_gene_models.ttl`
 
 **Import RDF graph into Virtuoso RDF Quad Store**
 
