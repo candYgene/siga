@@ -1,6 +1,6 @@
 # SIGA.py
 
-[![Build Status](https://travis-ci.org/candYgene/siga.svg?branch=master)](https://travis-ci.org/candYgene/siga)
+[![Build Status](https://travis-ci.org/candYgene/siga.svg?branch=master)](https://travis-ci.org/candYgene/siga) [![DOI](https://zenodo.org/badge/87862207.svg)](https://zenodo.org/badge/latestdoi/87862207)
 
 *SIGA.py* is a command-line tool written in Python to generate *Semantically Interoperable Genome Annotations* from
 text files in the Generic Feature Format ([GFF](https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md)) according to the Resource Description Framework ([RDF](https://www.w3.org/TR/rdf11-concepts/)) specification.
@@ -163,14 +163,6 @@ WHERE { ?s ?p ?o } ;
 rdfproc features parse features.ttl turtle
 rdfproc features serialize turtle
 ```
-
-
-## How to cite ##
-
-Please, refer to _SIGA.py_ in scientific publications by this persistent identifier:
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.30554.svg)](https://doi.org/10.5281/zenodo.30554)
-
 
 ## License ##
 The software is released under Apache License, Version 2.0.
