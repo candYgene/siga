@@ -93,13 +93,13 @@ wget http://solanaceae.plantbiology.msu.edu/data/PGSC_DM_V403_genes.gff.zip
 1. GFF->DB
 
     ```
-    python SIGA.py db -rV examples/features.gff3 # outputs *.db
+    python SIGA.py db -rV ../examples/features.gff3 # output *.db
     ```
 
 2. DB->RDF (default: `turtle`)
 
     ```
-    python SIGA.py rdf -c config.ini examples/features.db # outputs *.ttl
+    python SIGA.py rdf -c config.ini ../examples/features.db # output *.ttl
     ```
 
 Summary of I/O files:
