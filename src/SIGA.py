@@ -34,7 +34,7 @@ Options:
 """
 
 #
-# Supported feature types:
+# See config.ini for supported feature types:
 #   genome, chromosome, gene, prim_transcript, mRNA, intron, exon, CDS,
 #   three_prime_UTR, five_prime_UTR, polyA_site, polyA_sequence, variation
 #
@@ -193,10 +193,7 @@ def triplify(self, rdf_format, cfg):
     base_name, sfx = os.path.splitext(self.dbfn)
 
     # setup namespace prefixes
-    DCMITYPE = Namespace('http://purl.org/dc/dcmitype/')
     graph = Graph()
-    graph.bind('dcmitype', DCMITYPE)
-    graph.bind('dcterms', DCTERMS)
 
     for (prefix, uri) in cfg.items('Ontologies'):
         # instantiate dynamically from config
