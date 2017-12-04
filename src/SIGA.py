@@ -64,8 +64,8 @@ else:
     from configparser import SafeConfigParser, NoSectionError, NoOptionError
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.4.8'
-__status__ = 'alpha'
+__version__ = '0.5.0'
+__status__ = 'beta'
 __license__ = 'Apache License, Version 2.0'
 
 
