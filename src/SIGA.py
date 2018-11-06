@@ -168,10 +168,10 @@ def get_feature_attrs(ft, attrs):
        in the 'FeatureAttributes' section of the config file will be used.
     """
     des = []
-    for k,v in ft.attributes.iteritems():
+    for k,v in ft.attributes.items():
         if k.lower() in attrs:
             v = ', '.join(v) if type(v) == list else str(v)
-            des.append('{0}: {1}'.format(k, v.encode('utf-8')))
+            des.append('{0}: {1}'.format(k, v))
     if len(des) == 0:
         return None
     else:
