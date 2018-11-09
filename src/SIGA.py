@@ -294,7 +294,7 @@ def triplify(self, rdf_format, cfg):
             graph.add((start_uri, RDF.type, FALDO.ExactPosition))
             graph.add((start_uri, RDF.type, strand_type_uri))
             graph.add((start_uri, RDFS.label, Literal(
-                'chromosome {0}:{1}-*'.format(chromosome, feature.start))))
+                'chromosome {0}:{1}'.format(chromosome, feature.start))))
             graph.add((start_uri, FALDO.position, Literal(
                 feature.start, datatype=XSD.positiveInteger)))
             graph.add((start_uri, FALDO.reference, chromosome_uri))
@@ -302,7 +302,7 @@ def triplify(self, rdf_format, cfg):
             graph.add((end_uri, RDF.type, FALDO.ExactPosition))
             graph.add((end_uri, RDF.type, strand_type_uri))
             graph.add((end_uri, RDFS.label, Literal(
-                'chromosome {0}:*-{1}'.format(chromosome, feature.end))))
+                'chromosome {0}:{1}'.format(chromosome, feature.end))))
             graph.add((end_uri, FALDO.position, Literal(
                 feature.end, datatype=XSD.positiveInteger)))
             graph.add((end_uri, FALDO.reference, chromosome_uri))
