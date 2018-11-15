@@ -64,7 +64,7 @@ else:
     from configparser import SafeConfigParser, NoSectionError, NoOptionError
 
 __author__ = 'Arnold Kuzniar'
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 __status__ = 'beta'
 __license__ = 'Apache License, Version 2.0'
 
@@ -272,7 +272,7 @@ def triplify(self, rdf_format, cfg):
             graph.add((chromosome_uri, RDF.type, chromosome_type_uri))
             graph.add((chromosome_uri, RDFS.label, Literal(
                 'chromosome {0}'.format(chromosome), datatype=XSD.string)))
-            graph.add((chromosome_uri, SO.part_of, genome_uri))
+            graph.add((genome_uri, SO.has_part, chromosome_uri))
             graph.add((feature_uri, RDF.type, feature_type_uri))
             graph.add((feature_uri, RDFS.label, Literal(
                 '{0} {1}'.format(feature_type, feature_id), datatype=XSD.string)))
