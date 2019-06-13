@@ -241,7 +241,7 @@ def triplify(self, rdf_format, cfg):
     graph.add((taxon_uri, RDFS.label, Literal(
         'NCBI Taxonomy ID: {0}'.format(taxon_id), datatype=XSD.string)))
     graph.add((taxon_uri, DCTERMS.identifier, Literal(
-        taxon_id, datatype=XSD.positiveInteger)))
+        'NCBITaxon:{0}'.format(taxon_id), datatype=XSD.string)))
 
     # loop through all features in GFF
     for feature in self.all_features():
