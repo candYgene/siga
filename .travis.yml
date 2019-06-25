@@ -7,10 +7,19 @@ python:
 env:
   global:
     - PREFIX=../examples/features
+    - GFF_FILE=$PREFIX.gff
+    - DB_FILE=$PREFIX.db
+  matrix:
+    - FORMAT=turtle SFX=ttl
+    - FORMAT=nt SFX=nt
+    - FORMAT=n3 SFX=n3
+    - FORMAT=xml SFX=rdf
 install:
   - pip install -r requirements.txt
 before_script:
   - cd src
 script:
-  - python SIGA.py db -rV $PREFIX.gff
-  - python SIGA.py rdf -c config.ini $PREFIX.db
+  - python SIGA.py db -rV $GFF_FILE
+  - python SIGA.py rdf -c config.ini -o $FORMAT $DB_FILE
+  - cat $GFF_FILE
+  - cat $PREFIX.$SFX
