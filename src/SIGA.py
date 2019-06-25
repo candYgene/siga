@@ -333,8 +333,8 @@ def triplify(self, rdf_format, cfg):
         except:
             pass
     rdf_file = base_name + format_to_filext[rdf_format][1]
-    with open(rdf_file, 'w') as fout:
-        fout.write(graph.serialize(format=rdf_format).decode('utf-8'))
+    with open(rdf_file, 'wb') as fout:
+        fout.write(graph.serialize(format=rdf_format, encoding='utf-8'))
 
 
 if __name__ == '__main__':
