@@ -1,11 +1,14 @@
 """
-SIGA.py is a command-line tool to generate Semantically Interoperable Genome Annotations from
-GFF files [1,2] according to the RDF specification [3].
+SIGA.py is a command-line tool to generate Semantically Interoperable Genome
+Annotations from GFF files [1,2] according to the RDF specification [3].
 
 References:
-[1] Generic Feature Format specification, http://www.sequenceontology.org/
-[2] DDBJ/ENA/GenBank Feature Table Definition, http://www.insdc.org/documents/feature-table
-[3] Resource Description Framework, https://www.w3.org/TR/rdf11-concepts/
+[1] Generic Feature Format specification,
+    http://www.sequenceontology.org/
+[2] DDBJ/ENA/GenBank Feature Table Definition,
+    http://www.insdc.org/documents/feature-table
+[3] Resource Description Framework,
+    https://www.w3.org/TR/rdf11-concepts/
 
 Usage:
   SIGA.py -h|--help
@@ -39,7 +42,8 @@ Options:
 #   three_prime_UTR, five_prime_UTR, polyA_site, polyA_sequence, variation
 #
 # URI data space defined relative to base URI:
-#   ../genome/<species name>/<feature type>/<feature ID> + [#<begin|end>|#<start>-<end> chromosome only]
+#   ../genome/<species name>/<feature type>/<feature ID> +
+#   [#<begin|end>|#<start>-<end> chromosome only]
 #
 
 
@@ -70,8 +74,7 @@ __license__ = 'Apache License, Version 2.0'
 
 
 def is_uri(uri):
-    """Check if the input string is a URI.
-    """
+    """Check if the input string is a URI."""
     u = urlparse(uri)
     if u.scheme not in ('http', 'https', 'ftp'):
         raise ValueError("Unsupported URI scheme in '{0}'.".format(uri))
@@ -81,16 +84,16 @@ def is_uri(uri):
 
 
 def validate(self):
-    """Validate an instance of `SafeConfigParser` class. Check the presence of mandatory sections/options.
-    """
+    """Validate mandatory sections and options in config."""
     try:
-        sections = ('GFF', 'RDF', 'FeatureRewrite', 'FeatureAttributes', 'FeatureToClass',
-                    'DNAstrandToClass', 'Ontologies')
+        sections = ('GFF', 'RDF', 'FeatureRewrite', 'FeatureAttributes',
+                    'FeatureToClass', 'DNAstrandToClass', 'Ontologies')
         options = ('download_url', 'base_uri', 'creator', 'license')
         for s in sections:
             for k, v in self.items(s):
                 try:
-                    if (s in sections[:2] and k in options) or s in sections[4:]:
+                    if (s in sections[:2] and k in options) or \
+                       s in sections[4:]:
                         is_uri(v)
                 except ValueError as err:
                     print(str(err), file=sys.stderr)
@@ -137,19 +140,20 @@ def remove_file(fn):
 def normalize_feature_id(id):
     """Ad-hoc function to normalize feature IDs.
     """
-    # Note: Sub-optimal URL resolution of genetic features in SGN (https://solgenomics.net/);
-    # for example, feature ID 'gene:Solyc00g005000.2' in GFF corresponds to three URLs:
-    #   https://solgenomics.net/locus/Solyc00g005000.2/view
-    #   https://solgenomics.net/locus/Solyc00g005000/view
-    #   https://solgenomics.net/feature/17660839/details
+    # Note: Sub-optimal URL resolution of genetic features in SGN
+    #   https://solgenomics.net
+    # For example, feature ID 'gene:Solyc00g005000.2' in GFF corresponds to:
+    #   .../locus/Solyc00g005000.2/view
+    #   .../locus/Solyc00g005000/view
+    #   .../feature/17660839/details
     #
     # Also note the use of 'locus' istead of 'gene' and iternal IDs.
     #
     # Features such as mRNA, exon, intron do not resolve same way:
-    #   mRNA:Solyc00g005000.2.1       https://solgenomics.net/feature/17660840/details
-    #   exon:Solyc00g005000.2.1.1     https://solgenomics.net/feature/17660841/details
-    #   exon:Solyc00g005000.2.1.2     https://solgenomics.net/feature/17660843/details
-    #   intron:Solyc00g005000.2.1.1   https://solgenomics.net/feature/17660842/details
+    #   mRNA:Solyc00g005000.2.1       .../feature/17660840/details
+    #   exon:Solyc00g005000.2.1.1     .../feature/17660841/details
+    #   exon:Solyc00g005000.2.1.2     .../feature/17660843/details
+    #   intron:Solyc00g005000.2.1.1   .../feature/17660842/details
     #   five_prime_UTR and three_prime_UTR do not to have corresponding URLs.
     #
     # Moreover, feature IDs are not opaque as these prefixed with type e.g.
@@ -160,15 +164,16 @@ def normalize_feature_id(id):
     # for example, Solyc00g005000.2.1.0 for both
     #   five_prime_UTR:Solyc00g005000.2.1.0
     #   three_prime_UTR:Solyc00g005000.2.1.0
-    return re.sub('gene:|mRNA:|CDS:|exon:|intron:|\w+UTR:', '', id, flags=re.IGNORECASE)
+    return re.sub('gene:|mRNA:|CDS:|exon:|intron:|.+UTR:', '', id,
+                  flags=re.IGNORECASE)
 
 
 def get_feature_attrs(ft, attrs):
-    """Concatenate feature attributes into a single string; only tags listed
-       in the 'FeatureAttributes' section of the config file will be used.
+    """Concatenate feature attributes into a single string; only tags listed in
+       the 'FeatureAttributes' section of the config file will be used.
     """
     des = []
-    for k,v in ft.attributes.items():
+    for k, v in ft.attributes.items():
         if k.lower() in attrs:
             v = ', '.join(v) if type(v) == list else str(v)
             des.append('{0}: {1}'.format(k, v))
@@ -179,8 +184,7 @@ def get_feature_attrs(ft, attrs):
 
 
 def triplify(self, rdf_format, cfg):
-    """Generate RDF triples from `FeatureDB` using Direct Mapping approach.
-    """
+    """Generate RDF triples from `FeatureDB` using Direct Mapping approach."""
     # lookup table for RDF mime-types and file extensions
     format_to_filext = dict(
         turtle=['text/turtle', '.ttl'],
@@ -213,7 +217,7 @@ def triplify(self, rdf_format, cfg):
     genome_uri = URIRef(os.path.join(
         base_uri, 'genome', species_name.replace(' ', '_')))
     genome_type_uri = URIRef(cfg.get('FeatureToClass', 'genome'))
-    attrs = dict([(k.lower(),None) for k in cfg.options('FeatureAttributes')])
+    attrs = dict([(k.lower(), None) for k in cfg.options('FeatureAttributes')])
 
     # add genome info to graph
     graph.add((genome_uri, RDF.type, genome_type_uri))
@@ -262,8 +266,8 @@ def triplify(self, rdf_format, cfg):
             feature_type_uri = URIRef(cfg.get('FeatureToClass', feature_type))
             strand_type_uri = URIRef(
                 cfg.get('DNAstrandToClass', feature.strand))
-            region_uri = URIRef(
-                '{0}#{1}-{2}'.format(chromosome_uri, feature.start, feature.end))
+            region_uri = URIRef('{0}#{1}-{2}'.format(chromosome_uri,
+                                                     feature.start, feature.end))
             start_uri = URIRef('{0}#{1}'.format(chromosome_uri, feature.start))
             end_uri = URIRef('{0}#{1}'.format(chromosome_uri, feature.end))
 
@@ -274,8 +278,8 @@ def triplify(self, rdf_format, cfg):
                 'chromosome {0}'.format(chromosome), datatype=XSD.string)))
             graph.add((genome_uri, SO.has_part, chromosome_uri))
             graph.add((feature_uri, RDF.type, feature_type_uri))
-            graph.add((feature_uri, RDFS.label, Literal(
-                '{0} {1}'.format(feature_type, feature_id), datatype=XSD.string)))
+            graph.add((feature_uri, RDFS.label, Literal('{0} {1}'.format(
+                      feature_type, feature_id), datatype=XSD.string)))
             graph.add((feature_uri, DCTERMS.identifier, Literal(
                 feature_id, datatype=XSD.string)))
 
@@ -289,7 +293,8 @@ def triplify(self, rdf_format, cfg):
             graph.add((feature_uri, FALDO.location, region_uri))
             graph.add((region_uri, RDF.type, FALDO.Region))
             graph.add((region_uri, RDFS.label, Literal(
-                'chromosome {0}:{1}-{2}'.format(chromosome, feature.start, feature.end))))
+                'chromosome {0}:{1}-{2}'.format(chromosome, feature.start,
+                                                feature.end))))
             graph.add((region_uri, FALDO.begin, start_uri))
             graph.add((start_uri, RDF.type, FALDO.ExactPosition))
             graph.add((start_uri, RDF.type, strand_type_uri))
@@ -320,16 +325,17 @@ def triplify(self, rdf_format, cfg):
                     pass
                 child_feature_uri = URIRef(os.path.join(
                     genome_uri, child_feature_type, child_feature_id))
-                child_feature_type_uri = URIRef(
-                    cfg.get('FeatureToClass', child_feature_type))
                 graph.add((feature_uri, SO.has_part, child_feature_uri))
-                if feature_type == 'gene' and child_feature_type == 'prim_transcript':
-                    graph.add((feature_uri, SO.transcribed_to, child_feature_uri))
+                if feature_type == 'gene' and \
+                   child_feature_type == 'prim_transcript':
+                    graph.add((feature_uri, SO.transcribed_to,
+                               child_feature_uri))
         except:
             pass
     rdf_file = base_name + format_to_filext[rdf_format][1]
     with open(rdf_file, 'w') as fout:
         fout.write(graph.serialize(format=rdf_format).decode('utf-8'))
+
 
 if __name__ == '__main__':
     args = docopt(__doc__, version=__version__)
@@ -352,14 +358,18 @@ if __name__ == '__main__':
                     db = gff.FeatureDB(db_file)
                     db.update(gff_file)
                 else:
-                    db = gff.create_db(gff_file, db_file, merge_strategy=unique_keys,
-                                       verbose=debug, pragmas=pragmas, force=False)
+                    db = gff.create_db(gff_file, db_file,
+                                       merge_strategy=unique_keys,
+                                       verbose=debug, pragmas=pragmas,
+                                       force=False)
             else:  # one db per GFF file
                 base_name = os.path.splitext(gff_file)[0]
                 db_file = base_name + normalize_filext(args['-e'])
                 try:
-                    db = gff.create_db(gff_file, db_file, merge_strategy=unique_keys,
-                                       verbose=debug, pragmas=pragmas, force=False)
+                    db = gff.create_db(gff_file, db_file,
+                                       merge_strategy=unique_keys,
+                                       verbose=debug, pragmas=pragmas,
+                                       force=False)
                 except sql.OperationalError:
                     raise IOError(
                         "Database file '{0}' already exists.".format(db_file))
@@ -377,7 +387,7 @@ if __name__ == '__main__':
         cfg.optionxform = str  # option names case sensitive
         cfg.read(cfg_file)
         cfg.validate()
-        gff.FeatureDB.triplify = triplify # add new method
+        gff.FeatureDB.triplify = triplify  # add new method
         for db_file in args['DB_FILE']:
             db = gff.FeatureDB(db_file)
             db.triplify(rdf_format, cfg)
