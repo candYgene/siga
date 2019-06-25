@@ -4,10 +4,13 @@ dist: trusty
 python:
   - "2.7"
   - "3.6"
+env:
+  global:
+    - PREFIX=../examples/features
 install:
   - pip install -r requirements.txt
 before_script:
   - cd src
 script:
-  - python SIGA.py db -rV ../examples/features.gff3
-  - python SIGA.py rdf -c config.ini ../examples/features.db
+  - python SIGA.py db -rV $PREFIX.gff
+  - python SIGA.py rdf -c config.ini $PREFIX.db
