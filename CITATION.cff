@@ -8,10 +8,10 @@ authors:
     given-names: Arnold
     orcid: "https://orcid.org/0000-0003-1711-7961"
 cff-version: "1.0.3"
-date-released: 2017-12-04
-doi: 10.5281/zenodo.1076438
+date-released: 2019-07-02
+doi: 10.5281/zenodo.1076437
 license: Apache-2.0
 message: "If you use this software, please cite it using these metadata"
 repository-code: "https://github.com/candYgene/siga"
 title: SIGA.py
-version: 0.5
+version: 0.5.1
