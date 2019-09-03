@@ -8,7 +8,7 @@ authors:
     given-names: Arnold
     orcid: "https://orcid.org/0000-0003-1711-7961"
 cff-version: "1.0.3"
-date-released: 2019-07-02
+date-released: 2019-09-01
 doi: 10.5281/zenodo.1076437
 license: Apache-2.0
 message: "If you use this software, please cite it using these metadata"
